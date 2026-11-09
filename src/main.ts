@@ -1,9 +1,11 @@
 import { createSession } from "./game/game";
 import { render } from "./game/render";
+import { preloadSprites } from "./game/sprites";
 import { WORLD } from "./game/types";
 import { createBrowserHost } from "./platform/browser/browserHost";
 
 async function main(): Promise<void> {
+  preloadSprites();
   const root = document.querySelector("#app");
   if (!(root instanceof HTMLElement)) throw new Error("找不到 #app");
   try {

@@ -1,9 +1,34 @@
 import { font, hash, roundRect } from "./drawkit";
 import { islandCenterX, mailboxAabb, padCircle, solidBox } from "./physics";
+import { spriteImage } from "./sprites";
 import { PARCEL_R, WORLD, type IslandDef, type RenderModel } from "./types";
 import { drawHud } from "./ui";
 
+/**
+ * Anchors measured on the painted PNGs (source pixels).
+ * Island grass is the standable band; rock hangs below it.
+ * The mail slot is the dark opening, not the whole box.
+ */
+const ISLAND_GRASS_Y = 218;
+const ISLAND_GRASS_LEFT = 70;
+const ISLAND_GRASS_RIGHT = 566;
+const ISLAND_ROCK_BOTTOM = 618;
+const MAIL_SLOT_U = 102.5 / 293;
+const MAIL_SLOT_V = 191.5 / 614;
+const FOX_FOOT_U = 270 / 446;
+const FOX_FOOT_V = 734 / 745;
+const FOX_CROWN_V = 20 / 745;
+const FLAG_POLE_U = 18 / 245;
+
 function drawSky(ctx: CanvasRenderingContext2D): void {
+  const img = spriteImage("sky");
+  if (img) {
+    const scale = Math.max(WORLD.width / img.width, WORLD.height / img.height);
+    const dw = img.width * scale;
+    const dh = img.height * scale;
+    ctx.drawImage(img, (WORLD.width - dw) / 2, (WORLD.height - dh) / 2, dw, dh);
+    return;
+  }
   const sky = ctx.createLinearGradient(0, 0, 0, WORLD.height);
   sky.addColorStop(0, "#b7dcff");
   sky.addColorStop(0.45, "#d7f0ff");
@@ -14,6 +39,16 @@ function drawSky(ctx: CanvasRenderingContext2D): void {
 }
 
 function drawCloud(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number, alpha: number): void {
+  const img = spriteImage("cloud");
+  if (img) {
+    const dw = 104 * scale;
+    const dh = dw * (img.height / img.width);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(img, x - dw / 2, y - dh / 2, dw, dh);
+    ctx.restore();
+    return;
+  }
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(scale, scale * 0.82);
@@ -87,6 +122,19 @@ function drawIsland(ctx: CanvasRenderingContext2D, island: IslandDef, time: numb
     ctx.restore();
   }
 
+  const art = spriteImage("island");
+  if (art) {
+    const grassW = ISLAND_GRASS_RIGHT - ISLAND_GRASS_LEFT;
+    const hScale = w / grassW;
+    const vScale = (h * 1.22) / (ISLAND_ROCK_BOTTOM - ISLAND_GRASS_Y);
+    const dw = art.width * hScale;
+    const dh = art.height * vScale;
+    const dx = x - ((ISLAND_GRASS_LEFT + ISLAND_GRASS_RIGHT) / 2) * hScale;
+    const dy = top - ISLAND_GRASS_Y * vScale;
+    ctx.drawImage(art, dx, dy, dw, dh);
+    return;
+  }
+
   ctx.save();
   ctx.beginPath();
   ctx.moveTo(x - w * 0.48, top + 10);
@@ -136,6 +184,13 @@ function drawIsland(ctx: CanvasRenderingContext2D, island: IslandDef, time: numb
 }
 
 function drawPad(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, time: number): void {
+  const img = spriteImage("pad");
+  if (img) {
+    const dw = r * 2.05;
+    const dh = dw * (img.height / img.width);
+    ctx.drawImage(img, x - dw / 2, y - dh / 2, dw, dh);
+    return;
+  }
   ctx.save();
   ctx.translate(x, y);
   ctx.fillStyle = "rgba(126, 104, 196, 0.18)";
@@ -173,6 +228,14 @@ function drawPad(ctx: CanvasRenderingContext2D, x: number, y: number, r: number,
 
 function drawMailbox(ctx: CanvasRenderingContext2D, levelTime: number, model: RenderModel): void {
   const slot = mailboxAabb(model.level, levelTime);
+  const img = spriteImage("mailbox");
+  const island = model.level.islands.find((item) => item.id === model.level.mailbox.islandId);
+  if (img && island) {
+    const dw = Math.min(Math.max(island.w * 0.62, 50), 78);
+    const dh = dw * (img.height / img.width);
+    ctx.drawImage(img, slot.cx - MAIL_SLOT_U * dw, slot.cy - MAIL_SLOT_V * dh, dw, dh);
+    return;
+  }
   const boxW = slot.right - slot.left + 18;
   const boxH = slot.bottom - slot.top + 16;
   const boxX = slot.cx - boxW / 2;
@@ -212,7 +275,23 @@ function drawMailbox(ctx: CanvasRenderingContext2D, levelTime: number, model: Re
   ctx.restore();
 }
 
-function drawFox(ctx: CanvasRenderingContext2D, x: number, y: number, time: number): void {
+function drawFox(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  time: number,
+  launchIsland: IslandDef | undefined,
+): void {
+  const img = spriteImage("fox");
+  if (img) {
+    const body = FOX_FOOT_V - FOX_CROWN_V;
+    const dh = 62 / body;
+    const dw = dh * (img.width / img.height);
+    const footY = launchIsland ? launchIsland.y : y + 18;
+    const footX = launchIsland ? Math.min(x - 30, launchIsland.x + launchIsland.w / 2 - 10) : x - 30;
+    ctx.drawImage(img, footX - FOX_FOOT_U * dw, footY - FOX_FOOT_V * dh, dw, dh);
+    return;
+  }
   const blink = Math.sin(time * 2.1) > 0.97;
   ctx.save();
   ctx.translate(x, y - 10);
@@ -313,6 +392,17 @@ function drawFox(ctx: CanvasRenderingContext2D, x: number, y: number, time: numb
 }
 
 function drawParcel(ctx: CanvasRenderingContext2D, x: number, y: number, rot: number): void {
+  const img = spriteImage("parcel");
+  if (img) {
+    const dw = 27;
+    const dh = dw * (img.height / img.width);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    ctx.drawImage(img, -dw / 2, -dh / 2, dw, dh);
+    ctx.restore();
+    return;
+  }
   ctx.save();
   ctx.translate(x, y);
   roundRect(ctx, -9, -5, 22, 16, 3);
@@ -357,6 +447,18 @@ function drawWind(ctx: CanvasRenderingContext2D, model: RenderModel): void {
   const launch = model.level.islands.find((island) => island.id === "launch");
   const poleX = launch ? islandCenterX(launch, sceneTime(model)) - (launch.w * 0.28) : model.level.launch.x - 36;
   const poleY = launch ? launch.y : model.level.launch.y + 16;
+  const flag = spriteImage("flag");
+  if (flag) {
+    const fh = 96;
+    const fw = fh * (flag.width / flag.height);
+    ctx.save();
+    ctx.translate(poleX, poleY);
+    if (dir < 0) ctx.scale(-1, 1);
+    ctx.drawImage(flag, -FLAG_POLE_U * fw, -fh, fw, fh);
+    ctx.restore();
+    ctx.restore();
+    return;
+  }
   ctx.strokeStyle = "#c9854e";
   ctx.lineWidth = 3;
   ctx.beginPath();
@@ -453,7 +555,13 @@ export function render(ctx: CanvasRenderingContext2D, model: RenderModel, debug:
     if (debug) drawDots(model.preview.rest, false);
   }
 
-  drawFox(ctx, model.level.launch.x, model.level.launch.y, model.animTime);
+  drawFox(
+    ctx,
+    model.level.launch.x,
+    model.level.launch.y,
+    model.animTime,
+    model.level.islands.find((island) => island.id === "launch"),
+  );
 
   const pose = parcelPose(model);
   if (model.phase === "aiming" && model.pull) {
