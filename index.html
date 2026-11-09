@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="description" content="天空快递：把包裹投进浮岛上的邮箱。" />
+    <title>天空快递</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>"
+    />
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #b7daf8;
+        overflow: hidden;
+        overscroll-behavior: none;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      #app {
+        height: 100%;
+        display: grid;
+        place-items: center;
+      }
+      @font-face {
+        font-family: "SkyCourier SC";
+        src:
+          local("WenQuanYi Micro Hei"),
+          local("PingFang SC"),
+          local("Hiragino Sans GB"),
+          local("Noto Sans SC"),
+          local("Microsoft YaHei"),
+          local("Droid Sans Fallback");
+        font-display: swap;
+      }
+      canvas {
+        touch-action: none;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

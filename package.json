@@ -1,0 +1,22 @@
+{
+  "name": "sky-courier",
+  "version": "0.1.0",
+  "private": true,
+  "description": "天空快递：浏览器里可玩的物理投递原型，方便以后迁到微信小游戏。",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "node scripts/solve.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "typescript": "^5.6.3",
+    "vite": "^6.0.0"
+  }
+}
