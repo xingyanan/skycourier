@@ -106,37 +106,15 @@ function rangeText(shots: Shot[], key: "angle" | "power"): string {
   return key === "angle" ? `${min.toFixed(0)}°~${max.toFixed(0)}°` : `${Math.round(min * 100)}%~${Math.round(max * 100)}%`;
 }
 
-export function assessLevels(list: LevelConfig[] = levels): Assessment {
-  const started = performance.now();
-  const lines: string[] = [];
-  const recipes: Recipe[] = [];
-  let ok = true;
-
-  const sunny = search(list[0], 4, 0.08, [0]);
-  const sunnyBounce = sunny.filter((shot) => shot.bounces > 0);
-  lines.push(
-    `第1关 ${list[0].name}：弹板解 ${sunnyBounce.length} 个，直投解 ${sunny.length - sunnyBounce.length} 个，角度 ${rangeText(sunnyBounce, "angle")}，力度 ${rangeText(sunnyBounce, "power")}`,
-  );
-  if (sunnyBounce.length < 6) ok = false;
-  if (sunnyBounce.length > 0) {
-    const shot = densest(sunnyBounce);
-    recipes.push({ levelIndex: 0, ...shot });
-    lines.push(`  示例 ${describe(list[0], shot)}`);
+function motionPeriod(level: LevelConfig): number {
+  let period = 0;
+  for (const island of level.islands) {
+    if (island.motion && island.motion.period > period) period = island.motion.period;
   }
+  return period;
+}
 
-  const windy = search(list[1], 4, 0.08, [0]);
-  lines.push(`第2关 ${list[1].name}：可解 ${windy.length} 个，角度 ${rangeText(windy, "angle")}，力度 ${rangeText(windy, "power")}`);
-  if (windy.length < 6) ok = false;
-  if (windy.length > 0) {
-    const shot = densest(windy);
-    recipes.push({ levelIndex: 1, ...shot });
-    lines.push(`  示例 ${describe(list[1], shot)}`);
-  }
-
-  const moving = list[2];
-  const period = moving.islands.find((island) => island.motion)?.motion?.period ?? 4.8;
-  const times = timeSamples(period, 0.25);
-  const timed = search(moving, 6, 0.1, times);
+function movingRecipe(level: LevelConfig, index: number, period: number, timed: Shot[]): { ok: boolean; line: string; recipe: Recipe | null } {
   const groups = new Map<string, Shot[]>();
   for (const shot of timed) {
     const key = `${shot.angle.toFixed(5)}|${shot.power.toFixed(3)}`;
@@ -156,21 +134,66 @@ export function assessLevels(list: LevelConfig[] = levels): Assessment {
       bestShots = bucket;
     }
   }
-  lines.push(`第3关 ${moving.name}：命中样本 ${timed.length} 个，最宽松手窗口 ${bestSpan.toFixed(2)} 秒`);
-  if (bestSpan < 0.45 || bestShots.length < 3) ok = false;
-  if (bestShots.length > 0) {
-    let chosen = bestShots[0];
-    let neighbors = -1;
-    for (const shot of bestShots) {
-      const count = bestShots.filter((other) => circularDist(shot.time0, other.time0, period) <= 0.3).length;
-      if (count > neighbors) {
-        neighbors = count;
-        chosen = shot;
-      }
+  const line = `第${level.id}关 ${level.name}：命中样本 ${timed.length} 个，最宽松手窗口 ${bestSpan.toFixed(2)} 秒`;
+  const minSpan = level.id === 3 ? 0.45 : 0.35;
+  if (bestSpan < minSpan || bestShots.length < 2) return { ok: false, line, recipe: null };
+  let chosen = bestShots[0];
+  let neighbors = -1;
+  for (const shot of bestShots) {
+    const count = bestShots.filter((other) => circularDist(shot.time0, other.time0, period) <= 0.3).length;
+    if (count > neighbors) {
+      neighbors = count;
+      chosen = shot;
     }
-    recipes.push({ levelIndex: 2, ...chosen });
-    lines.push(`  示例 ${describe(moving, chosen)}，松手时刻 ${chosen.time0.toFixed(2)} 秒`);
   }
+  return { ok: true, line, recipe: { levelIndex: index, ...chosen } };
+}
+
+export function assessLevels(list: LevelConfig[] = levels): Assessment {
+  const started = performance.now();
+  const lines: string[] = [];
+  const recipes: Recipe[] = [];
+  let ok = true;
+
+  list.forEach((level, index) => {
+    const period = motionPeriod(level);
+    if (period > 0) {
+      const fine = level.id === 3;
+      const step = fine ? 0.25 : period > 5 ? 0.3 : 0.25;
+      const timed = search(level, fine ? 6 : 8, fine ? 0.1 : 0.12, timeSamples(period, step));
+      const result = movingRecipe(level, index, period, timed);
+      lines.push(result.line);
+      if (!result.ok) ok = false;
+      else if (result.recipe) {
+        recipes.push(result.recipe);
+        lines.push(`  示例 ${describe(level, result.recipe)}，松手时刻 ${result.recipe.time0.toFixed(2)} 秒`);
+      }
+      return;
+    }
+
+    const wins = search(level, 4, 0.08, [0]);
+    const bounced = wins.filter((shot) => shot.bounces > 0);
+    if (level.pads.length > 0 && index === 0) {
+      lines.push(
+        `第${level.id}关 ${level.name}：弹板解 ${bounced.length} 个，直投解 ${wins.length - bounced.length} 个，角度 ${rangeText(bounced, "angle")}，力度 ${rangeText(bounced, "power")}`,
+      );
+      if (bounced.length < 6) ok = false;
+    } else if (level.pads.length > 0) {
+      lines.push(
+        `第${level.id}关 ${level.name}：弹板解 ${bounced.length} 个，直投解 ${wins.length - bounced.length} 个，角度 ${rangeText(wins, "angle")}，力度 ${rangeText(wins, "power")}`,
+      );
+      if (wins.length < 4 || bounced.length < 1) ok = false;
+    } else {
+      lines.push(`第${level.id}关 ${level.name}：可解 ${wins.length} 个，角度 ${rangeText(wins, "angle")}，力度 ${rangeText(wins, "power")}`);
+      if (wins.length < 4) ok = false;
+    }
+    const pool = bounced.length > 0 ? bounced : wins;
+    if (pool.length > 0) {
+      const shot = densest(pool);
+      recipes.push({ levelIndex: index, ...shot });
+      lines.push(`  示例 ${describe(level, shot)}`);
+    }
+  });
 
   lines.push(`搜索耗时 ${Math.round(performance.now() - started)} ms`);
   if (!ok) lines.push("有关卡的可解窗口太窄。");

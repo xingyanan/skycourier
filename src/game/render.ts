@@ -13,6 +13,8 @@ import { drawHud } from "./ui";
 const ISLAND_GRASS_Y = 390;
 const ISLAND_GRASS_LEFT = 55;
 const ISLAND_GRASS_RIGHT = 610;
+/** Bottom of the mailbox body, where the post begins, as a fraction of mailbox.png. */
+const MAIL_BASE_V = 420 / 614;
 const MAIL_SLOT_U = 102.5 / 293;
 const MAIL_SLOT_V = 191.5 / 614;
 const FOX_FOOT_U = 270 / 446;
@@ -225,14 +227,25 @@ function drawPad(ctx: CanvasRenderingContext2D, x: number, y: number, r: number,
   ctx.restore();
 }
 
+/** Screen y of the green top, above the collision lip by the perspective of the island art. */
+function grassFaceY(island: IslandDef): number {
+  return island.y - Math.min(26, island.w * 0.18);
+}
+
 function drawMailbox(ctx: CanvasRenderingContext2D, levelTime: number, model: RenderModel): void {
   const slot = mailboxAabb(model.level, levelTime);
   const img = spriteImage("mailbox");
   const island = model.level.islands.find((item) => item.id === model.level.mailbox.islandId);
   if (img && island) {
-    const dw = Math.min(Math.max(island.w * 0.62, 50), 78);
-    const dh = dw * (img.height / img.width);
-    ctx.drawImage(img, slot.cx - MAIL_SLOT_U * dw, slot.cy - MAIL_SLOT_V * dh, dw, dh);
+    const slotToBase = MAIL_BASE_V - MAIL_SLOT_V;
+    const stand = grassFaceY(island);
+    const preferred = (stand - slot.cy) / slotToBase;
+    const dh = Math.min(120, Math.max(56, preferred));
+    const dw = dh * (img.width / img.height);
+    let slotY = slot.cy;
+    const overflow = slotY + slotToBase * dh - stand;
+    if (overflow > 0) slotY -= Math.min(overflow, slot.cy - slot.top);
+    ctx.drawImage(img, slot.cx - MAIL_SLOT_U * dw, slotY - MAIL_SLOT_V * dh, dw, dh);
     return;
   }
   const boxW = slot.right - slot.left + 18;
@@ -286,8 +299,11 @@ function drawFox(
     const body = FOX_FOOT_V - FOX_CROWN_V;
     const dh = 62 / body;
     const dw = dh * (img.width / img.height);
-    const footY = launchIsland ? launchIsland.y : y + 18;
-    const footX = launchIsland ? Math.min(x - 30, launchIsland.x + launchIsland.w / 2 - 10) : x - 30;
+    const footY = launchIsland ? grassFaceY(launchIsland) : y + 8;
+    const margin = launchIsland ? Math.max(26, launchIsland.w * 0.22) : 0;
+    const minX = launchIsland ? launchIsland.x - launchIsland.w / 2 + margin : x - 30;
+    const maxX = launchIsland ? launchIsland.x + launchIsland.w / 2 - margin : x - 30;
+    const footX = launchIsland ? Math.min(Math.max(x - 36, minX), maxX) : x - 30;
     ctx.drawImage(img, footX - FOX_FOOT_U * dw, footY - FOX_FOOT_V * dh, dw, dh);
     return;
   }
@@ -541,7 +557,10 @@ export function render(ctx: CanvasRenderingContext2D, model: RenderModel, debug:
       points.forEach((point) => {
         ctx.beginPath();
         ctx.arc(point.x, point.y, strong ? 3.3 : 2.4, 0, Math.PI * 2);
-        ctx.fillStyle = strong ? "rgba(255,255,255,0.95)" : "rgba(255,120,120,0.35)";
+        const hot = model.power;
+        ctx.fillStyle = strong
+          ? `rgba(255,${Math.round(255 - hot * 90)},${Math.round(255 - hot * 140)},0.95)`
+          : "rgba(255,120,120,0.35)";
         ctx.fill();
         if (strong) {
           ctx.strokeStyle = "rgba(90,140,190,0.35)";

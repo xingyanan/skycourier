@@ -1,4 +1,5 @@
 import { font, roundRect, star } from "./drawkit";
+import { rateStars } from "./score";
 import { WORLD, type Phase, type RenderModel, type ResultKind } from "./types";
 
 export interface Button {
@@ -124,17 +125,26 @@ function drawEnvelope(ctx: CanvasRenderingContext2D, x: number, y: number): void
   ctx.restore();
 }
 
+function starsNow(model: RenderModel): number {
+  if (model.phase === "win") return model.winStars;
+  const upcoming = model.phase === "ready" || model.phase === "aiming";
+  const throws = upcoming ? model.throws + 1 : Math.max(1, model.throws);
+  return rateStars(model.level, throws, 0);
+}
+
 export function drawHud(ctx: CanvasRenderingContext2D, model: RenderModel): void {
   const { level } = model;
   chip(ctx, BADGE.x, BADGE.y, BADGE.w, BADGE.h, model.pressedId === "badge" ? "#ffe7bf" : "#fff6e4");
   ctx.fillStyle = "#3e6ea5";
-  ctx.font = font(22, 700);
+  ctx.font = font(20, 700);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(String(level.id), BADGE.x + BADGE.w / 2, BADGE.y + BADGE.h / 2 + 1);
+  ctx.fillText(String(level.id), BADGE.x + BADGE.w / 2, BADGE.y + 16);
+  ctx.font = font(11, 700);
+  ctx.fillStyle = "#6a829c";
+  ctx.fillText(`/${model.levelCount}`, BADGE.x + BADGE.w / 2, BADGE.y + 34);
 
-  const shownStars = model.phase === "win" ? model.winStars : 0;
-  drawStars(ctx, 168, 34, shownStars, 11);
+  drawStars(ctx, 168, 34, starsNow(model), 11);
   ctx.font = font(12);
   ctx.fillStyle = "#5d7590";
   ctx.textAlign = "center";
@@ -159,18 +169,32 @@ export function drawHud(ctx: CanvasRenderingContext2D, model: RenderModel): void
   ctx.fillText(`已投 ${model.throws} 次`, 18, 84);
 
   if (model.phase === "aiming") {
-    ctx.textAlign = "center";
-    ctx.font = font(14, 700);
+    const pct = Math.round(model.power * 100);
+    ctx.textAlign = "left";
+    ctx.font = font(13, 700);
     ctx.fillStyle = "#3e6ea5";
-    ctx.fillText(`力度 ${Math.round(model.power * 100)}%`, 250, 84);
+    ctx.fillText(`力度 ${pct}%`, 196, 82);
+    const barX = 196;
+    const barY = 90;
+    const barW = 150;
+    roundRect(ctx, barX, barY, barW, 8, 4);
+    ctx.fillStyle = "rgba(255,255,255,0.72)";
+    ctx.fill();
+    roundRect(ctx, barX, barY, Math.max(8, barW * model.power), 8, 4);
+    ctx.fillStyle = model.power > 0.82 ? "#e07a32" : "#5aa2e0";
+    ctx.fill();
   }
 
   if (model.phase === "ready" || model.phase === "aiming") {
+    const cardW = 280;
+    const cardX = (WORLD.width - cardW) / 2;
+    chip(ctx, cardX, 636, cardW, 52, "rgba(255,255,255,0.9)");
     ctx.textAlign = "center";
     ctx.font = font(14);
     ctx.fillStyle = "#4e6882";
-    ctx.fillText(level.hint[0], WORLD.width / 2, 656);
-    ctx.fillText(level.hint[1], WORLD.width / 2, 676);
+    ctx.textBaseline = "middle";
+    ctx.fillText(level.hint[0], WORLD.width / 2, 652);
+    ctx.fillText(level.hint[1], WORLD.width / 2, 672);
   }
 
   if (model.phase !== "win") {
