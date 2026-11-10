@@ -6,14 +6,13 @@ import { drawHud } from "./ui";
 
 /**
  * Anchors measured on the painted PNGs (source pixels).
- * Island grass is the standable band; rock hangs below it.
+ * Islands use one scale from the grass width, so the lip stays on the collision top
+ * and the rock follows the art's aspect.
  * The mail slot is the dark opening, not the whole box.
  */
 const ISLAND_GRASS_Y = 390;
 const ISLAND_GRASS_LEFT = 55;
 const ISLAND_GRASS_RIGHT = 610;
-const ISLAND_ROCK_BOTTOM = 596;
-const ISLAND_ROCK_SCALE = 1.05;
 const MAIL_SLOT_U = 102.5 / 293;
 const MAIL_SLOT_V = 191.5 / 614;
 const FOX_FOOT_U = 270 / 446;
@@ -126,12 +125,11 @@ function drawIsland(ctx: CanvasRenderingContext2D, island: IslandDef, time: numb
   const art = spriteImage("island");
   if (art) {
     const grassW = ISLAND_GRASS_RIGHT - ISLAND_GRASS_LEFT;
-    const hScale = w / grassW;
-    const vScale = (h * ISLAND_ROCK_SCALE) / (ISLAND_ROCK_BOTTOM - ISLAND_GRASS_Y);
-    const dw = art.width * hScale;
-    const dh = art.height * vScale;
-    const dx = x - ((ISLAND_GRASS_LEFT + ISLAND_GRASS_RIGHT) / 2) * hScale;
-    const dy = top - ISLAND_GRASS_Y * vScale;
+    const scale = w / grassW;
+    const dw = art.width * scale;
+    const dh = art.height * scale;
+    const dx = x - ((ISLAND_GRASS_LEFT + ISLAND_GRASS_RIGHT) / 2) * scale;
+    const dy = top - ISLAND_GRASS_Y * scale;
     ctx.drawImage(art, dx, dy, dw, dh);
     return;
   }
