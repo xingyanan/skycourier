@@ -9,10 +9,11 @@ import { drawHud } from "./ui";
  * Island grass is the standable band; rock hangs below it.
  * The mail slot is the dark opening, not the whole box.
  */
-const ISLAND_GRASS_Y = 218;
-const ISLAND_GRASS_LEFT = 70;
-const ISLAND_GRASS_RIGHT = 566;
-const ISLAND_ROCK_BOTTOM = 618;
+const ISLAND_GRASS_Y = 390;
+const ISLAND_GRASS_LEFT = 55;
+const ISLAND_GRASS_RIGHT = 610;
+const ISLAND_ROCK_BOTTOM = 596;
+const ISLAND_ROCK_SCALE = 1.05;
 const MAIL_SLOT_U = 102.5 / 293;
 const MAIL_SLOT_V = 191.5 / 614;
 const FOX_FOOT_U = 270 / 446;
@@ -126,7 +127,7 @@ function drawIsland(ctx: CanvasRenderingContext2D, island: IslandDef, time: numb
   if (art) {
     const grassW = ISLAND_GRASS_RIGHT - ISLAND_GRASS_LEFT;
     const hScale = w / grassW;
-    const vScale = (h * 1.22) / (ISLAND_ROCK_BOTTOM - ISLAND_GRASS_Y);
+    const vScale = (h * ISLAND_ROCK_SCALE) / (ISLAND_ROCK_BOTTOM - ISLAND_GRASS_Y);
     const dw = art.width * hScale;
     const dh = art.height * vScale;
     const dx = x - ((ISLAND_GRASS_LEFT + ISLAND_GRASS_RIGHT) / 2) * hScale;
